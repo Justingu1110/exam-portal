@@ -1,0 +1,28 @@
+[
+  {
+    "id": "001",
+    "year": 112,
+    "grade": "4",
+    "semester": "下",
+    "examType": "第三次段考(期末考)",
+    "subject": "國語",
+    "publisher": "翰林",
+    "county": "臺北市",
+    "school": "範例國小",
+    "hasAnswerKey": true,
+    "url": "https://www.tcool.cc/"
+  },
+  {
+    "id": "002",
+    "year": 112,
+    "grade": "4",
+    "semester": "下",
+    "examType": "第三次段考(期末考)",
+    "subject": "數學",
+    "publisher": "南一",
+    "county": "臺北市",
+    "school": "範例國小",
+    "hasAnswerKey": true,
+    "url": "https://www.tcool.cc/"
+  }
+]

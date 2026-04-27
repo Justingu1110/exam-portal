@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理考卷 — 小學考古題平台</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <h1>⚙️ 管理考卷</h1>
+      <a href="index.html" class="admin-link">← 回主頁</a>
+    </div>
+  </header>
+
+  <div class="admin-main">
+
+    <!-- 新增考卷 -->
+    <div class="admin-card">
+      <h2>新增考卷</h2>
+      <div id="alert" class="alert"></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="a-year">學年度</label>
+          <input type="number" id="a-year" placeholder="例：113" min="100" max="200">
+        </div>
+        <div class="form-group">
+          <label for="a-grade">年級 <span class="required-star">*</span></label>
+          <select id="a-grade">
+            <option value="">請選擇</option>
+            <option value="4">4年級</option>
+            <option value="5">5年級</option>
+            <option value="6">6年級</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="a-semester">學期 <span class="required-star">*</span></label>
+          <select id="a-semester">
+            <option value="">請選擇</option>
+            <option value="上">上學期</option>
+            <option value="下">下學期</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="a-examtype">段考 <span class="required-star">*</span></label>
+          <select id="a-examtype">
+            <option value="">請選擇</option>
+            <option value="第一次段考(期中考)">第一次段考（期中考）</option>
+            <option value="第二次段考(期中考)">第二次段考（期中考）</option>
+            <option value="第三次段考(期末考)">第三次段考（期末考）</option>
+            <option value="第二次段考(期末考)">第二次段考（期末考）</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="a-subject">科目 <span class="required-star">*</span></label>
+          <select id="a-subject">
+            <option value="">請選擇</option>
+            <option value="國語">國語</option>
+            <option value="數學">數學</option>
+            <option value="自然">自然</option>
+            <option value="社會">社會</option>
+            <option value="英語">英語</option>
+            <option value="生活">生活</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="a-publisher">出版社 <span class="required-star">*</span></label>
+          <select id="a-publisher">
+            <option value="">請選擇</option>
+            <option value="康軒">康軒</option>
+            <option value="翰林">翰林</option>
+            <option value="南一">南一</option>
+            <option value="龍騰">龍騰</option>
+            <option value="何嘉仁">何嘉仁</option>
+            <option value="三民">三民</option>
+            <option value="佳音">佳音</option>
+            <option value="泰宇">泰宇</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="a-county">縣市</label>
+          <select id="a-county">
+            <option value="">請選擇</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="a-school">學校名稱</label>
+          <input type="text" id="a-school" placeholder="例：XX國小">
+        </div>
+        <div class="form-group">
+          <label for="a-answer">含答案卷</label>
+          <select id="a-answer">
+            <option value="true">是</option>
+            <option value="false">否</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label for="a-url">PDF 網址 <span class="required-star">*</span></label>
+          <input type="url" id="a-url" placeholder="貼上 tcool.cc 的 PDF 連結">
+        </div>
+      </div>
+      <button class="btn-add" id="btn-add">新增考卷</button>
+    </div>
+
+    <!-- 考卷清單 -->
+    <div class="admin-card">
+      <h2>目前考卷清單（<span id="total-count">0</span> 份）</h2>
+      <div style="overflow-x:auto">
+        <table class="exam-table">
+          <thead>
+            <tr>
+              <th>學年</th>
+              <th>年級</th>
+              <th>學期</th>
+              <th>段考</th>
+              <th>科目</th>
+              <th>出版社</th>
+              <th>縣市</th>
+              <th>學校</th>
+              <th>答案</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="exam-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 匯入匯出 -->
+    <div class="admin-card">
+      <h2>資料管理</h2>
+      <p style="font-size:.82rem;color:var(--gray-600);margin-bottom:14px">
+        匯出 JSON 後，將檔案放到 <code>data/exams.json</code> 並推上 GitHub，所有裝置即可同步最新資料。
+      </p>
+      <div class="admin-actions">
+        <button class="btn-export" id="btn-export">匯出 exams.json</button>
+        <label class="btn-import-label">
+          匯入 exams.json
+          <input type="file" id="file-import" accept=".json" style="display:none">
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/admin.js"></script>
+</body>
+</html>
