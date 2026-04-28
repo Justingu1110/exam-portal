@@ -266,21 +266,30 @@ body {
 .tag.answer    { background: #f0fdf4; color: #166534; }
 .tag.no-answer { background: #fef2f2; color: #991b1b; }
 
-.btn-pdf {
+.btn-group {
   flex-shrink: 0;
-  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.btn-pdf {
+  padding: 7px 12px;
   background: var(--primary);
   color: #fff;
   border: none;
   border-radius: 7px;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
+  text-align: center;
   transition: background .15s;
+  display: block;
 }
 .btn-pdf:hover { background: var(--primary-dark); }
+.btn-answer { background: #059669; }
+.btn-answer:hover { background: #047857; }
 
 /* Empty state */
 .empty-state {

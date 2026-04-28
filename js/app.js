@@ -124,8 +124,10 @@ function renderResults(exams) {
           </span>
         </div>
       </div>
-      <a class="btn-pdf" href="${e.url}" target="_blank" rel="noopener"
-         onclick="event.stopPropagation()">開啟 PDF</a>
+      <div class="btn-group" onclick="event.stopPropagation()">
+        <a class="btn-pdf" href="${e.url}" target="_blank" rel="noopener">題目卷</a>
+        ${e.answerUrl ? `<a class="btn-pdf btn-answer" href="${e.answerUrl}" target="_blank" rel="noopener">答案卷</a>` : ''}
+      </div>
     </div>
   `).join('');
 
