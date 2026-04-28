@@ -10,6 +10,7 @@ async function init() {
   populateYears();
   populateCounties();
   bindEvents();
+  updateFilterOptions(); // 初始化時就根據資料更新選項
 }
 
 function populateYears() {
@@ -34,13 +35,66 @@ function populateCounties() {
 }
 
 function bindEvents() {
-  document.getElementById('f-grade').addEventListener('change', updateVersionHint);
-  document.getElementById('f-subject').addEventListener('change', updateVersionHint);
+  ['f-grade','f-subject','f-semester','f-examtype','f-publisher','f-county','f-year','f-answer']
+    .forEach(id => document.getElementById(id).addEventListener('change', onFilterChange));
   document.getElementById('btn-search').addEventListener('click', doSearch);
   document.getElementById('btn-reset').addEventListener('click', resetFilters);
   document.getElementById('btn-select-all').addEventListener('click', selectAll);
   document.getElementById('btn-select-none').addEventListener('click', selectNone);
   document.getElementById('btn-open-pdfs').addEventListener('click', openSelected);
+}
+
+function onFilterChange() {
+  updateVersionHint();
+  updateFilterOptions();
+}
+
+// 根據目前選擇，動態更新其他下拉選單（只顯示有資料的選項）
+function updateFilterOptions() {
+  const f = getFilterValues();
+
+  // 各欄位對應的 exams 欄位
+  const fields = {
+    'f-grade':    'grade',
+    'f-subject':  'subject',
+    'f-semester': 'semester',
+    'f-examtype': 'examType',
+    'f-publisher':'publisher',
+    'f-county':   'county',
+    'f-year':     'year',
+  };
+
+  Object.entries(fields).forEach(([selId, field]) => {
+    const sel = document.getElementById(selId);
+    const currentVal = sel.value;
+
+    // 計算：「除了這個欄位以外」的條件過濾出來的資料，有哪些值
+    const available = new Set(
+      allExams.filter(e => {
+        if (f.grade     && field !== 'grade'     && String(e.grade)     !== f.grade)     return false;
+        if (f.subject   && field !== 'subject'   && e.subject           !== f.subject)   return false;
+        if (f.semester  && field !== 'semester'  && e.semester          !== f.semester)  return false;
+        if (f.examType  && field !== 'examType'  && e.examType          !== f.examType)  return false;
+        if (f.publisher && field !== 'publisher' && e.publisher         !== f.publisher) return false;
+        if (f.county    && field !== 'county'    && e.county            !== f.county)    return false;
+        if (f.year      && field !== 'year'      && String(e.year)      !== f.year)      return false;
+        return true;
+      }).map(e => String(field === 'year' ? e.year : e[field]))
+    );
+
+    // 更新每個 option 的狀態（灰色 + disabled）
+    Array.from(sel.options).forEach(opt => {
+      if (!opt.value) return; // 保留「不限」
+      const isAvailable = available.has(opt.value);
+      opt.disabled = !isAvailable;
+      opt.style.color = isAvailable ? '' : '#ccc';
+    });
+
+    // 如果目前選的值已無資料，重設為「不限」
+    if (currentVal && !available.has(currentVal)) {
+      sel.value = '';
+    }
+  });
 }
 
 function updateVersionHint() {
@@ -73,19 +127,17 @@ function getFilterValues() {
 
 function doSearch() {
   const f = getFilterValues();
-
   filtered = allExams.filter(e => {
-    if (f.year      && String(e.year)        !== f.year)      return false;
-    if (f.grade     && String(e.grade)       !== f.grade)     return false;
-    if (f.semester  && e.semester            !== f.semester)  return false;
-    if (f.examType  && e.examType            !== f.examType)  return false;
-    if (f.subject   && e.subject             !== f.subject)   return false;
-    if (f.publisher && e.publisher           !== f.publisher) return false;
-    if (f.county    && e.county              !== f.county)    return false;
-    if (f.answer    && String(e.hasAnswerKey) !== f.answer)   return false;
+    if (f.year      && String(e.year)         !== f.year)      return false;
+    if (f.grade     && String(e.grade)        !== f.grade)     return false;
+    if (f.semester  && e.semester             !== f.semester)  return false;
+    if (f.examType  && e.examType             !== f.examType)  return false;
+    if (f.subject   && e.subject              !== f.subject)   return false;
+    if (f.publisher && e.publisher            !== f.publisher) return false;
+    if (f.county    && e.county               !== f.county)    return false;
+    if (f.answer    && String(e.hasAnswerKey)  !== f.answer)   return false;
     return true;
   });
-
   renderResults(filtered);
 }
 
@@ -117,8 +169,8 @@ function renderResults(exams) {
         <div class="exam-meta">
           ${e.year ? `<span class="tag">${e.year} 學年</span>` : ''}
           <span class="tag publisher">${e.publisher}</span>
-          ${e.county  ? `<span class="tag county">${e.county}</span>` : ''}
-          ${e.school  ? `<span class="tag school">${e.school}</span>` : ''}
+          ${e.county ? `<span class="tag county">${e.county}</span>` : ''}
+          ${e.school ? `<span class="tag school">${e.school}</span>` : ''}
           <span class="tag ${e.hasAnswerKey ? 'answer' : 'no-answer'}">
             ${e.hasAnswerKey ? '含答案卷' : '無答案卷'}
           </span>
@@ -136,9 +188,7 @@ function renderResults(exams) {
 
 function onCardClick(event, card) {
   const cb = card.querySelector('.exam-checkbox');
-  if (event.target !== cb) {
-    cb.checked = !cb.checked;
-  }
+  if (event.target !== cb) cb.checked = !cb.checked;
   card.classList.toggle('selected', cb.checked);
   updateBottomBar();
 }
@@ -168,8 +218,7 @@ function updateBottomBar() {
 
 function openSelected() {
   const urls = [...document.querySelectorAll('.exam-checkbox:checked')]
-    .map(cb => cb.dataset.url)
-    .filter(Boolean);
+    .map(cb => cb.dataset.url).filter(Boolean);
   if (urls.length === 0) return;
   document.getElementById('popup-hint').classList.add('show');
   urls.forEach(url => window.open(url, '_blank', 'noopener'));
@@ -182,6 +231,7 @@ function resetFilters() {
   document.getElementById('results-section').style.display = 'none';
   document.getElementById('empty-state').style.display = 'none';
   document.getElementById('popup-hint').classList.remove('show');
+  updateFilterOptions();
   updateBottomBar();
 }
 
