@@ -2,8 +2,8 @@
 """
 從 tcool.cc 批次爬取小學考古題 PDF 連結
 - 不限出版社（抓全部）
-- 自動翻頁到底
-對象：4年級下學期期末考 → 6年級全部期中+期末，4科
+- 按縣市逐一查詢（tcool.cc 按縣市查詢才能拿到各縣市的資料）
+- 對象：4年級下學期期末考 → 6年級全部期中+期末，4科
 """
 
 import urllib.request
@@ -11,6 +11,15 @@ import urllib.parse
 import json
 import time
 import re
+
+# 資料中實際有考卷的縣市（先查空、再逐縣市查）
+CITIES = [
+    '',        # 不限縣市（抓全域排序前幾名）
+    '彰化縣', '高雄市', '臺北市', '新北市', '桃園市',
+    '臺中市', '臺南市', '基隆市', '花蓮縣',
+    '南投縣', '臺東縣', '嘉義市', '屏東縣',
+    '宜蘭縣', '嘉義縣', '新竹市', '澎湖縣', '雲林縣', '新竹縣',
+]
 
 def period_to_type(p):
     return {
@@ -24,16 +33,19 @@ def parse_year(yp):
     m = re.match(r'^(\d+)', yp or '')
     return int(m.group(1)) if m else None
 
-def fetch_page(grade, subject, semester, period, page=1):
+def fetch_page(grade, subject, semester, period, page=1, city=''):
     """取得某一頁的結果"""
-    data = urllib.parse.urlencode({
+    params = {
         'grade':    str(grade),
         'subject':  subject,
         'semester': str(semester),
         'period':   str(period),
         'page':     str(page),
-        # 不加 publisher，不加 has_answer → 抓全部
-    }).encode('utf-8')
+    }
+    if city:
+        params['city'] = city
+
+    data = urllib.parse.urlencode(params).encode('utf-8')
 
     req = urllib.request.Request(
         'https://www.tcool.cc/',
@@ -78,39 +90,45 @@ def parse_html(html, grade, subject, semester, period):
     return results
 
 def get_total_pages(html):
-    """從 HTML 解析總頁數"""
-    # 找所有 gotoPage(n) 按鈕，取最大頁碼
+    """從 HTML 解析總頁數（最多抓 5 頁，避免 tcool.cc 假分頁無限循環）"""
     pages = re.findall(r'gotoPage\((\d+)\)', html)
-    return max(int(p) for p in pages) if pages else 1
+    return min(max(int(p) for p in pages), 5) if pages else 1
 
-def search_all_pages(grade, subject, semester, period):
-    """翻頁抓完所有結果（從HTML讀取真實總頁數）"""
+def search_all_pages(grade, subject, semester, period, city='', seen_urls_global=None):
+    """翻頁抓完所有結果，回傳本次新增的 records"""
+    if seen_urls_global is None:
+        seen_urls_global = set()
+
     all_results = []
-    seen_urls_local = set()
+    seen_local = set()
 
-    # 先抓第1頁，同時取得總頁數
-    html = fetch_page(grade, subject, semester, period, 1)
+    # 先抓第1頁
+    html = fetch_page(grade, subject, semester, period, 1, city)
     if not html:
         return []
 
     total_pages = get_total_pages(html)
     results = parse_html(html, grade, subject, semester, period)
     for r in results:
-        if r['url'] and r['url'] not in seen_urls_local:
-            seen_urls_local.add(r['url'])
+        if r['url'] and r['url'] not in seen_urls_global and r['url'] not in seen_local:
+            seen_local.add(r['url'])
             all_results.append(r)
 
-    # 繼續抓剩餘頁
+    # 繼續抓剩餘頁（若第1頁的 URL 在第2頁全部重複，代表假分頁，提早結束）
     for page in range(2, total_pages + 1):
-        html = fetch_page(grade, subject, semester, period, page)
+        html = fetch_page(grade, subject, semester, period, page, city)
         if not html:
             break
         results = parse_html(html, grade, subject, semester, period)
+        new_in_page = 0
         for r in results:
-            if r['url'] and r['url'] not in seen_urls_local:
-                seen_urls_local.add(r['url'])
+            if r['url'] and r['url'] not in seen_urls_global and r['url'] not in seen_local:
+                seen_local.add(r['url'])
                 all_results.append(r)
-        time.sleep(0.25)
+                new_in_page += 1
+        if new_in_page == 0:
+            break  # 假分頁：沒有新資料，提早結束
+        time.sleep(0.2)
 
     return all_results
 
@@ -131,24 +149,32 @@ def main():
                 for subj in SUBJECTS:
                     searches.append((grade, subj, semester, period))
 
-    print(f'📋 共 {len(searches)} 個搜尋組合（不限出版社，自動翻頁）\n')
+    total_combos = len(searches) * len(CITIES)
+    print(f'📋 共 {len(searches)} 個搜尋組合 × {len(CITIES)} 個縣市 = {total_combos} 次查詢\n')
 
     all_exams = []
-    seen_urls = set()  # 去重
+    seen_urls = set()  # 全域去重
 
-    for i, (grade, subj, semester, period) in enumerate(searches):
-        sem_label = '上' if semester == 1 else '下'
-        print(f'  [{i+1}/{len(searches)}] {grade}年 {subj} {sem_label}學期 {period_to_type(period)}...', end=' ', flush=True)
+    combo_idx = 0
+    for city in CITIES:
+        city_label = city if city else '（不限縣市）'
+        city_new = 0
+        for grade, subj, semester, period in searches:
+            combo_idx += 1
+            sem_label = '上' if semester == 1 else '下'
+            print(f'  [{combo_idx}/{total_combos}] {city_label} {grade}年 {subj} {sem_label} {period_to_type(period)}... ', end='', flush=True)
 
-        results = search_all_pages(grade, subj, semester, period)
+            results = search_all_pages(grade, subj, semester, period, city, seen_urls)
 
-        # 過濾沒有 URL 的，以及重複的
-        new = [r for r in results if r['url'] and r['url'] not in seen_urls]
-        for r in new:
-            seen_urls.add(r['url'])
-        all_exams.extend(new)
-        print(f'{len(new)} 筆（總計 {len(all_exams)}）')
-        time.sleep(0.2)
+            new = [r for r in results if r['url'] and r['url'] not in seen_urls]
+            for r in new:
+                seen_urls.add(r['url'])
+            all_exams.extend(new)
+            city_new += len(new)
+            print(f'{len(new)} 筆新增（總計 {len(all_exams)}）')
+            time.sleep(0.2)
+
+        print(f'  ✔ {city_label} 共新增 {city_new} 筆\n')
 
     # 加 id
     for i, e in enumerate(all_exams):
@@ -159,15 +185,15 @@ def main():
         json.dump(all_exams, f, ensure_ascii=False, indent=2)
 
     # 統計
-    by_grade = {}
-    by_pub   = {}
-    for e in all_exams:
-        by_grade[e['grade']+'年'] = by_grade.get(e['grade']+'年', 0) + 1
-        by_pub[e['publisher']]    = by_pub.get(e['publisher'], 0) + 1
+    from collections import Counter
+    by_grade   = Counter(e['grade']+'年' for e in all_exams)
+    by_pub     = Counter(e['publisher'] for e in all_exams)
+    by_county  = Counter(e['county'] for e in all_exams)
 
     print(f'\n✅ 完成！共 {len(all_exams)} 筆，已存到 {output_path}')
-    print(f'按年級：{by_grade}')
-    print(f'按出版社：{dict(sorted(by_pub.items(), key=lambda x: -x[1]))}')
+    print(f'按年級：{dict(by_grade)}')
+    print(f'按出版社：{dict(by_pub.most_common())}')
+    print(f'按縣市（前10）：{dict(by_county.most_common(10))}')
 
 if __name__ == '__main__':
     main()
