@@ -43,6 +43,7 @@ function addExam() {
   const school    = document.getElementById('a-school').value.trim();
   const hasAnswer = document.getElementById('a-answer').value === 'true';
   const url       = document.getElementById('a-url').value.trim();
+  const answerUrl = document.getElementById('a-answer-url').value.trim();
 
   if (!grade || !semester || !examType || !subject || !publisher || !url) {
     showAlert('請填寫所有必填欄位（年級、學期、段考、科目、出版社、PDF 網址）', 'error');
@@ -64,7 +65,8 @@ function addExam() {
     county,
     school,
     hasAnswerKey: hasAnswer,
-    url
+    url,
+    answerUrl
   };
 
   exams.push(newExam);
@@ -74,7 +76,7 @@ function addExam() {
 }
 
 function clearForm() {
-  ['a-year','a-school','a-url'].forEach(id => { document.getElementById(id).value = ''; });
+  ['a-year','a-school','a-url','a-answer-url'].forEach(id => { document.getElementById(id).value = ''; });
   ['a-grade','a-semester','a-examtype','a-subject','a-publisher','a-county'].forEach(id => {
     document.getElementById(id).value = '';
   });
