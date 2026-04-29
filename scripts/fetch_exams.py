@@ -40,7 +40,7 @@ def fetch_page(grade, subject, semester, period, page=1, city=''):
         'subject':  subject,
         'semester': str(semester),
         'period':   str(period),
-        'page':     str(page),
+        'p':        str(page),   # tcool.cc 用 p= 而非 page=
     }
     if city:
         params['city'] = city
