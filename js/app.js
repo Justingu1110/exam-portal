@@ -42,6 +42,7 @@ function bindEvents() {
   document.getElementById('btn-select-all').addEventListener('click', selectAll);
   document.getElementById('btn-select-none').addEventListener('click', selectNone);
   document.getElementById('btn-open-pdfs').addEventListener('click', openSelected);
+  document.getElementById('btn-download-pdfs').addEventListener('click', downloadSelected);
 }
 
 function onFilterChange() {
@@ -222,6 +223,40 @@ function openSelected() {
   if (urls.length === 0) return;
   document.getElementById('popup-hint').classList.add('show');
   urls.forEach(url => window.open(url, '_blank', 'noopener'));
+}
+
+function downloadSelected() {
+  const cards = [...document.querySelectorAll('.exam-checkbox:checked')]
+    .map(cb => cb.closest('.exam-card'));
+  if (cards.length === 0) return;
+
+  // 收集所有要下載的 URL（題目卷 + 答案卷）
+  const downloads = [];
+  cards.forEach(card => {
+    const id = card.dataset.id;
+    const exam = filtered.find(e => e.id === id);
+    if (!exam) return;
+    if (exam.url)       downloads.push({ url: exam.url,       name: `${exam.grade}年_${exam.semester}_${exam.examType}_${exam.subject}_${exam.school}_題目.pdf` });
+    if (exam.answerUrl) downloads.push({ url: exam.answerUrl, name: `${exam.grade}年_${exam.semester}_${exam.examType}_${exam.subject}_${exam.school}_答案.pdf` });
+  });
+
+  if (downloads.length === 0) return;
+
+  // 逐一觸發下載（間隔 400ms 避免被瀏覽器封鎖）
+  downloads.forEach(({ url, name }, i) => {
+    setTimeout(() => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name.replace(/[\/\\:*?"<>|]/g, '_');
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }, i * 400);
+  });
+
+  document.getElementById('popup-hint').classList.add('show');
 }
 
 function resetFilters() {

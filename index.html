@@ -116,7 +116,7 @@
       </div>
 
       <div id="popup-hint" class="popup-hint">
-        💡 提示：開啟多個分頁時，請允許瀏覽器的彈出視窗權限
+        💡 提示：請允許瀏覽器彈出視窗權限。下載時若瀏覽器在新分頁開啟 PDF，請按 PDF 右上角的 ⬇ 圖示儲存到本機。
       </div>
 
       <div id="exam-list" class="exam-list"></div>
@@ -130,7 +130,10 @@
   <!-- 底部固定操作列 -->
   <div class="bottom-bar" id="bottom-bar">
     <span id="selected-count" class="selected-count">已選 0 份</span>
-    <button class="btn-open" id="btn-open-pdfs">開啟選取的 PDF</button>
+    <div class="bottom-actions">
+      <button class="btn-open" id="btn-open-pdfs">📂 開啟</button>
+      <button class="btn-download" id="btn-download-pdfs">⬇ 下載</button>
+    </div>
   </div>
 
   <script src="js/app.js"></script>
