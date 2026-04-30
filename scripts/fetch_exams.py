@@ -90,17 +90,24 @@ def parse_html(html, grade, subject, semester, period):
     return results
 
 def get_total_pages(html):
-    """從 HTML 解析總頁數（最多抓 5 頁，避免 tcool.cc 假分頁無限循環）"""
+    """從 HTML 解析總頁數（最多抓 30 頁）"""
     pages = re.findall(r'gotoPage\((\d+)\)', html)
-    return min(max(int(p) for p in pages), 5) if pages else 1
+    return min(max(int(p) for p in pages), 30) if pages else 1
 
 def search_all_pages(grade, subject, semester, period, city='', seen_urls_global=None):
-    """翻頁抓完所有結果，回傳本次新增的 records"""
+    """翻頁抓完所有結果，回傳本次新增的 records。
+
+    關鍵設計：
+    - seen_local：本次查詢的去重，用來判斷「是否繼續翻頁」（假分頁偵測）
+    - seen_urls_global：全域去重，用來判斷「是否加入 DB」
+    兩者分開，避免 no-city 先把第1頁存進 global 後，
+    city-specific 查詢誤判為假分頁而提早結束。
+    """
     if seen_urls_global is None:
         seen_urls_global = set()
 
     all_results = []
-    seen_local = set()
+    seen_local = set()  # 只用於判斷是否繼續翻頁
 
     # 先抓第1頁
     html = fetch_page(grade, subject, semester, period, 1, city)
@@ -110,24 +117,32 @@ def search_all_pages(grade, subject, semester, period, city='', seen_urls_global
     total_pages = get_total_pages(html)
     results = parse_html(html, grade, subject, semester, period)
     for r in results:
-        if r['url'] and r['url'] not in seen_urls_global and r['url'] not in seen_local:
+        if not r['url']:
+            continue
+        is_new_local = r['url'] not in seen_local
+        if is_new_local:
             seen_local.add(r['url'])
+        if r['url'] not in seen_urls_global:
             all_results.append(r)
 
-    # 繼續抓剩餘頁（若第1頁的 URL 在第2頁全部重複，代表假分頁，提早結束）
+    # 繼續抓剩餘頁
     for page in range(2, total_pages + 1):
         html = fetch_page(grade, subject, semester, period, page, city)
         if not html:
             break
         results = parse_html(html, grade, subject, semester, period)
-        new_in_page = 0
+        new_local_in_page = 0
         for r in results:
-            if r['url'] and r['url'] not in seen_urls_global and r['url'] not in seen_local:
+            if not r['url']:
+                continue
+            is_new_local = r['url'] not in seen_local
+            if is_new_local:
                 seen_local.add(r['url'])
+                new_local_in_page += 1
+            if r['url'] not in seen_urls_global:
                 all_results.append(r)
-                new_in_page += 1
-        if new_in_page == 0:
-            break  # 假分頁：沒有新資料，提早結束
+        if new_local_in_page == 0:
+            break  # 真正的假分頁（local 也沒新 URL）才停
         time.sleep(0.2)
 
     return all_results
