@@ -42,7 +42,14 @@ function bindEvents() {
   document.getElementById('btn-select-all').addEventListener('click', selectAll);
   document.getElementById('btn-select-none').addEventListener('click', selectNone);
   document.getElementById('btn-open-pdfs').addEventListener('click', openSelected);
-  document.getElementById('btn-download-pdfs').addEventListener('click', downloadSelected);
+  document.getElementById('btn-download-pdfs').addEventListener('click', openDownloadModal);
+
+  // Modal close
+  document.getElementById('dl-modal-close').addEventListener('click', closeDownloadModal);
+  document.getElementById('dl-modal-backdrop').addEventListener('click', e => {
+    if (e.target === document.getElementById('dl-modal-backdrop')) closeDownloadModal();
+  });
+  document.getElementById('btn-open-all-tabs').addEventListener('click', openAllTabs);
 }
 
 function onFilterChange() {
@@ -225,37 +232,48 @@ function openSelected() {
   urls.forEach(url => window.open(url, '_blank', 'noopener'));
 }
 
-function downloadSelected() {
+// ── Download modal ──────────────────────────────────────────────
+let modalExams = [];
+
+function openDownloadModal() {
   const cards = [...document.querySelectorAll('.exam-checkbox:checked')]
     .map(cb => cb.closest('.exam-card'));
   if (cards.length === 0) return;
 
-  // 收集所有要下載的 URL（題目卷 + 答案卷）
-  const downloads = [];
-  cards.forEach(card => {
-    const id = card.dataset.id;
-    const exam = filtered.find(e => e.id === id);
-    if (!exam) return;
-    if (exam.url)       downloads.push({ url: exam.url,       name: `${exam.grade}年_${exam.semester}_${exam.examType}_${exam.subject}_${exam.school}_題目.pdf` });
-    if (exam.answerUrl) downloads.push({ url: exam.answerUrl, name: `${exam.grade}年_${exam.semester}_${exam.examType}_${exam.subject}_${exam.school}_答案.pdf` });
+  modalExams = cards.map(card => filtered.find(e => e.id === card.dataset.id)).filter(Boolean);
+  if (modalExams.length === 0) return;
+
+  const body = document.getElementById('dl-modal-body');
+  body.innerHTML = modalExams.map(e => {
+    const label = `${e.grade}年 ${e.semester}學期 ${e.examType} ─ ${e.subject}`;
+    const meta  = [e.year ? `${e.year}學年` : '', e.publisher, e.county, e.school].filter(Boolean).join('・');
+    return `
+      <div class="dl-item">
+        <div class="dl-item-info">
+          <div class="dl-item-title">${label}</div>
+          <div class="dl-item-meta">${meta}</div>
+        </div>
+        <div class="dl-item-links">
+          ${e.url       ? `<a class="btn-dl-link question"    href="${e.url}"       target="_blank" rel="noopener">題目卷</a>` : ''}
+          ${e.answerUrl ? `<a class="btn-dl-link answer-link" href="${e.answerUrl}" target="_blank" rel="noopener">答案卷</a>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('dl-modal-backdrop').classList.add('open');
+}
+
+function closeDownloadModal() {
+  document.getElementById('dl-modal-backdrop').classList.remove('open');
+}
+
+function openAllTabs() {
+  const urls = [];
+  modalExams.forEach(e => {
+    if (e.url)       urls.push(e.url);
+    if (e.answerUrl) urls.push(e.answerUrl);
   });
-
-  if (downloads.length === 0) return;
-
-  // 逐一觸發下載（間隔 400ms 避免被瀏覽器封鎖）
-  downloads.forEach(({ url, name }, i) => {
-    setTimeout(() => {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name.replace(/[\/\\:*?"<>|]/g, '_');
-      a.target = '_blank';
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }, i * 400);
-  });
-
+  urls.forEach(url => window.open(url, '_blank', 'noopener'));
   document.getElementById('popup-hint').classList.add('show');
 }
 
