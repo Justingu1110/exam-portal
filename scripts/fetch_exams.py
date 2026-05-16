@@ -11,6 +11,7 @@ import urllib.parse
 import json
 import time
 import re
+from pathlib import Path
 
 # 資料中實際有考卷的縣市（先查空、再逐縣市查）
 CITIES = [
@@ -195,7 +196,7 @@ def main():
     for i, e in enumerate(all_exams):
         e['id'] = str(i + 1).zfill(4)
 
-    output_path = '/Users/kyle/exam-portal/data/exams.json'
+    output_path = Path(__file__).parent.parent / 'data' / 'exams.json'
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(all_exams, f, ensure_ascii=False, indent=2)
 
