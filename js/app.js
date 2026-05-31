@@ -50,6 +50,19 @@ function bindEvents() {
     if (e.target === document.getElementById('dl-modal-backdrop')) closeDownloadModal();
   });
   document.getElementById('btn-open-all-tabs').addEventListener('click', openAllTabs);
+
+  document.getElementById('btn-merge-pdf').addEventListener('click', () => {
+    const cards = [...document.querySelectorAll('.exam-checkbox:checked')]
+      .map(cb => cb.closest('.exam-card'));
+    if (cards.length === 0) return;
+    const exams = cards.map(card => filtered.find(e => e.id === card.dataset.id)).filter(Boolean);
+    mergePdfs(exams);
+  });
+
+  document.getElementById('btn-merge-modal-pdf').addEventListener('click', () => {
+    if (modalExams.length === 0) return;
+    mergePdfs(modalExams);
+  });
 }
 
 function onFilterChange() {
@@ -275,6 +288,55 @@ function openAllTabs() {
   });
   urls.forEach(url => window.open(url, '_blank', 'noopener'));
   document.getElementById('popup-hint').classList.add('show');
+}
+
+async function mergePdfs(exams) {
+  const urls = [];
+  exams.forEach(e => {
+    if (e.url)       urls.push(e.url);
+    if (e.answerUrl) urls.push(e.answerUrl);
+  });
+  if (urls.length === 0) return;
+
+  const btnBottom = document.getElementById('btn-merge-pdf');
+  const btnModal  = document.getElementById('btn-merge-modal-pdf');
+  const originalBottom = btnBottom.textContent;
+  const originalModal  = btnModal.textContent;
+
+  btnBottom.textContent = '合併中...';
+  btnBottom.disabled = true;
+  btnModal.textContent = '合併中...';
+  btnModal.disabled = true;
+
+  try {
+    const response = await fetch('/api/merge-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'exams.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('mergePdfs error:', err);
+    alert('合併失敗，請稍後再試');
+  } finally {
+    btnBottom.textContent = originalBottom;
+    btnBottom.disabled = false;
+    btnModal.textContent = originalModal;
+    btnModal.disabled = false;
+  }
 }
 
 function resetFilters() {
