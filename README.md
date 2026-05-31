@@ -41,24 +41,29 @@ pip3 install -r requirements.txt
 ```
 看到 `Successfully installed ...` 就 OK。途中若有 `WARNING ... not on PATH`，**忽略它**。
 
-### 每次要用的時候（一個 Terminal）
-
+**5. 建立桌面捷徑**
 ```bash
-cd ~/Desktop/exam-portal
-bash scripts/start.sh
+bash scripts/install-desktop-shortcut.sh
 ```
+會在你的桌面建一個 `exam-portal.command` 圖示。之後雙擊它就能啟動，不用再開 Terminal 打指令。
 
-會自動跳出一個獨立 profile 的 Chrome（跟你日常用的 Chrome 完全分開，不會動到你的書籤密碼），然後啟動 server。看到：
-```
-打開瀏覽器：http://localhost:8080
-```
-就用平常的瀏覽器打開那個網址。
+### 每次要用的時候
 
-**Terminal 視窗要一直開著**，可以最小化。
+**雙擊桌面上的 `exam-portal.command`**。
+
+會自動：
+1. 跳出一個獨立 profile 的 Chrome（跟你日常用的 Chrome 完全分開）
+2. 啟動 server
+3. 用你預設的瀏覽器打開 <http://localhost:8080>
+
+> 第一次雙擊若被 macOS 擋（「無法開啟，因為來自不明開發者」）：
+> **右鍵點檔案 → 開啟 → 開啟**。之後雙擊就 OK。
+
+（也可以在 Terminal 直接跑 `bash scripts/start.sh`，效果一樣。）
 
 ### 結束時
 
-回到那個 Terminal 視窗按 `Control + C`，Chrome 跟 server 會一起關掉。
+回到那個 Terminal 視窗按 `Control + C`，Chrome 跟 server 會一起關掉，然後按任意鍵關閉視窗。
 
 ### 疑難排解
 
@@ -109,8 +114,9 @@ exam-portal/
 │   └── config.json               App config — grade/subject/publisher lists, default-publisher map
 └── scripts/
     ├── fetch_exams.py            Scraper that crawls tcool.cc and regenerates exams.json
-    ├── launch-chrome-cdp.sh      Launches just the isolated Chrome (used by start.sh)
-    └── start.sh                  One-shot: launches Chrome + server, Ctrl+C tears both down
+    ├── launch-chrome-cdp.sh         Launches just the isolated Chrome (used by start.sh)
+    ├── start.sh                     One-shot: launches Chrome + server, Ctrl+C tears both down
+    └── install-desktop-shortcut.sh  Creates a double-clickable launcher on ~/Desktop (macOS)
 ```
 
 ### Data flow
