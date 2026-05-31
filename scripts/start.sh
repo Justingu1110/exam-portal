@@ -87,4 +87,13 @@ echo ""
 python3 server.py &
 SERVER_PID=$!
 
+# Wait for the server to be listening, then auto-open the browser
+for _ in $(seq 1 20); do
+  port_in_use "$SERVER_PORT" && break
+  sleep 0.5
+done
+if port_in_use "$SERVER_PORT" && command -v open >/dev/null 2>&1; then
+  open "http://localhost:$SERVER_PORT"
+fi
+
 wait "$SERVER_PID"
