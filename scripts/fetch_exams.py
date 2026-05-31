@@ -23,6 +23,7 @@ CITIES = [
 ]
 
 def period_to_type(p):
+    """將 tcool.cc 的 period 數字轉換為中文段考名稱（1–4 → 期中/期末考）。"""
     return {
         '1': '第一次段考(期中考)',
         '2': '第二次段考(期中考)',
@@ -31,6 +32,7 @@ def period_to_type(p):
     }.get(str(p), '')
 
 def parse_year(yp):
+    """從 year-period 字串（如 '113上'）解析出民國年份整數，解析失敗回傳 None。"""
     m = re.match(r'^(\d+)', yp or '')
     return int(m.group(1)) if m else None
 
@@ -151,6 +153,7 @@ def search_all_pages(grade, subject, semester, period, city='', seen_urls_global
 SUBJECTS = ['國語', '數學', '社會', '自然']
 
 def main():
+    """爬取所有目標組合的考卷並將結果寫入 data/exams.json。"""
     searches = []
 
     # 四年級：只抓下學期期末（period 3 和 4）
