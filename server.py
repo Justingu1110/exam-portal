@@ -1,5 +1,6 @@
 import io
 import threading
+from urllib.parse import urlparse
 from flask import Flask, request, send_file, jsonify
 from pypdf import PdfWriter, PdfReader
 from playwright.sync_api import sync_playwright
@@ -8,6 +9,7 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 
 CDP_URL = 'http://localhost:9222'
 REFERER = 'https://www.tcool.cc/'
+ALLOWED_HOST = 'www.tcool.cc'
 _lock = threading.Lock()
 
 
@@ -28,19 +30,17 @@ def serve_static(path):
 
 
 def _solve_cf(ctx, sample_url):
-    """Navigate a tab to a /d/*.pdf URL so Cloudflare's Turnstile auto-solves,
-    granting a cf_clearance cookie for the whole session."""
+    """Navigate a tab to a /d/*.pdf URL so Cloudflare's Turnstile auto-solves.
+    Always wait the full 5 s — checking the cookie early returns stale state
+    where the cookie exists but CF still rejects new requests."""
     page = ctx.new_page()
     try:
         try:
             page.goto(sample_url, wait_until='domcontentloaded', timeout=60000)
         except Exception:
             pass
-        for _ in range(20):
-            page.wait_for_timeout(1000)
-            if any(c['name'] == 'cf_clearance' for c in ctx.cookies('https://www.tcool.cc/')):
-                return True
-        return False
+        page.wait_for_timeout(5000)
+        return any(c['name'] == 'cf_clearance' for c in ctx.cookies('https://www.tcool.cc/'))
     finally:
         page.close()
 
@@ -87,6 +87,11 @@ def merge_pdf():
     if not urls:
         return jsonify({'error': 'No URLs provided'}), 400
 
+    for u in urls:
+        parsed = urlparse(u)
+        if parsed.scheme != 'https' or parsed.hostname != ALLOWED_HOST or not parsed.path.endswith('.pdf'):
+            return jsonify({'error': f'URL not allowed: {u}'}), 400
+
     with _lock:
         try:
             pdfs = _fetch_pdfs(urls)
@@ -117,4 +122,4 @@ def merge_pdf():
 
 
 if __name__ == '__main__':
-    app.run(port=8080, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=False)
