@@ -41,41 +41,31 @@ pip3 install -r requirements.txt
 ```
 看到 `Successfully installed ...` 就 OK。途中若有 `WARNING ... not on PATH`，**忽略它**。
 
-### 每次要用的時候（兩個 Terminal 視窗）
+### 每次要用的時候（一個 Terminal）
 
-**視窗 ①：開 Chrome（保持不關）**
 ```bash
 cd ~/Desktop/exam-portal
-bash scripts/launch-chrome-cdp.sh
+bash scripts/start.sh
 ```
-會跳出一個獨立 profile 的 Chrome 視窗（跟你平常那個 Chrome 完全分開，不會動到你的書籤密碼）。**這個視窗不要關**，可以最小化。
 
-**視窗 ②：開 Server**
-
-按 `⌘ + N` 開**新的** Terminal 視窗：
-```bash
-cd ~/Desktop/exam-portal
-python3 server.py
+會自動跳出一個獨立 profile 的 Chrome（跟你日常用的 Chrome 完全分開，不會動到你的書籤密碼），然後啟動 server。看到：
 ```
-看到 `Running on http://127.0.0.1:8080` 就成功了。
-
-**開始用**
-
-打開你平常的瀏覽器，網址列輸入：
+打開瀏覽器：http://localhost:8080
 ```
-http://localhost:8080
-```
+就用平常的瀏覽器打開那個網址。
+
+**Terminal 視窗要一直開著**，可以最小化。
 
 ### 結束時
 
-回到那兩個 Terminal 視窗，各自按 `Control + C` 停掉，再關掉那個獨立的 Chrome 視窗。
+回到那個 Terminal 視窗按 `Control + C`，Chrome 跟 server 會一起關掉。
 
 ### 疑難排解
 
 | 問題 | 解法 |
 |---|---|
-| 按合併沒反應 / 跳「合併失敗」 | 確認視窗 ①（Chrome）跟視窗 ②（server）兩個都還在跑 |
-| `Port 8080 已有東西在聽` | 上次的 server 沒關乾淨。Terminal 跑 `pkill -f "python3 server.py"` 再試 |
+| 按合併沒反應 / 跳「合併失敗」 | 確認 Terminal（跑著 `start.sh` 的那個）還在 |
+| `Port 8080 已被佔用` 或 `Port 9222 已有東西在聽` | 上次沒關乾淨。跑 `pkill -f "scripts/start.sh"; pkill -f "python3 server.py"; pkill -f "remote-debugging-port=9222"` 再試 |
 | `找不到 Chrome` | 去 <https://www.google.com/chrome/> 安裝 |
 | 沒裝 Python | 跑 `xcode-select --install` |
 
@@ -119,7 +109,8 @@ exam-portal/
 │   └── config.json               App config — grade/subject/publisher lists, default-publisher map
 └── scripts/
     ├── fetch_exams.py            Scraper that crawls tcool.cc and regenerates exams.json
-    └── launch-chrome-cdp.sh      Launches an isolated Chrome with remote debugging (macOS)
+    ├── launch-chrome-cdp.sh      Launches just the isolated Chrome (used by start.sh)
+    └── start.sh                  One-shot: launches Chrome + server, Ctrl+C tears both down
 ```
 
 ### Data flow
@@ -127,6 +118,6 @@ exam-portal/
 1. On page load, `app.js` fetches `data/config.json` and `data/exams.json`.
 2. Filter dropdowns dynamically disable options that have no matching records.
 3. Search results render as cards; selected cards can be opened in new tabs, downloaded individually, or merged into a single PDF.
-4. Merge calls `POST /api/merge-pdf` on `server.py`. The server connects to the user's CDP Chrome on `localhost:9222`, fetches each PDF (auto-solving the Cloudflare challenge on first hit), and returns the merged file.
+4. Merge calls `POST /api/merge-pdf` on `server.py`. The server connects to the user's CDP Chrome on `localhost:9222`, runs `fetch()` for each PDF inside a tcool.cc page (so Cloudflare sees a real browser); on a 403 it navigates the page to that URL to let Cloudflare's JS challenge auto-solve, then retries. The collected PDFs are merged with `pypdf` and returned as one file.
 5. `admin.html` lets you add exam entries manually, or import/export the full `exams.json` — push the updated file to update the live data for all users.
 6. To bulk-refresh the dataset, run `scripts/fetch_exams.py` and commit the updated `data/exams.json`.

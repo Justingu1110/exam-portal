@@ -1,3 +1,4 @@
+import base64
 import io
 import threading
 from urllib.parse import urlparse
@@ -8,9 +9,23 @@ from playwright.sync_api import sync_playwright
 app = Flask(__name__, static_folder='.', static_url_path='')
 
 CDP_URL = 'http://localhost:9222'
-REFERER = 'https://www.tcool.cc/'
 ALLOWED_HOST = 'www.tcool.cc'
+HOMEPAGE = f'https://{ALLOWED_HOST}/'
 _lock = threading.Lock()
+
+# Fetch via the browser's own network stack so Cloudflare sees a real Chrome
+# request (Playwright's APIRequestContext fails the bot check even with cookies).
+_BROWSER_FETCH_JS = """
+async (url) => {
+  const r = await fetch(url, {credentials: 'include'});
+  if (!r.ok) return {ok: false, status: r.status};
+  const buf = await r.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return {ok: true, status: r.status, b64: btoa(bin)};
+}
+"""
 
 
 @app.after_request
@@ -29,49 +44,48 @@ def serve_static(path):
     return app.send_static_file(path)
 
 
-def _solve_cf(ctx, sample_url):
-    """Navigate a tab to a /d/*.pdf URL so Cloudflare's Turnstile auto-solves.
-    Always wait the full 5 s — checking the cookie early returns stale state
-    where the cookie exists but CF still rejects new requests."""
-    page = ctx.new_page()
+def _try_fetch(page, url):
     try:
-        try:
-            page.goto(sample_url, wait_until='domcontentloaded', timeout=60000)
-        except Exception:
-            pass
-        page.wait_for_timeout(5000)
-        return any(c['name'] == 'cf_clearance' for c in ctx.cookies('https://www.tcool.cc/'))
-    finally:
-        page.close()
+        res = page.evaluate(_BROWSER_FETCH_JS, url)
+        if res.get('ok'):
+            body = base64.b64decode(res['b64'])
+            if body[:4] == b'%PDF':
+                return body
+    except Exception as e:
+        app.logger.warning(f'evaluate err {url}: {e}')
+    return None
 
 
 def _fetch_pdfs(urls):
-    """Returns {url: bytes} for whichever PDFs we managed to retrieve."""
+    """Returns {url: bytes} for whichever PDFs we managed to retrieve.
+    Runs fetch() inside a tcool.cc page so Cloudflare sees a real browser.
+    Cloudflare challenges per-URL, so on a 403 we navigate to the URL once
+    (which triggers CF's JS auto-solve in a real browser) and then retry."""
     results = {}
     with sync_playwright() as p:
         browser = p.chromium.connect_over_cdp(CDP_URL)
         ctx = browser.contexts[0] if browser.contexts else browser.new_context()
         try:
-            cleared = any(c['name'] == 'cf_clearance' for c in ctx.cookies('https://www.tcool.cc/'))
-            if not cleared:
-                _solve_cf(ctx, urls[0])
+            page = ctx.new_page()
+            try:
+                page.goto(HOMEPAGE, wait_until='domcontentloaded', timeout=30000)
+            except Exception as e:
+                app.logger.warning(f'homepage navigate failed: {e}')
 
             for url in urls:
-                try:
-                    r = ctx.request.get(url, headers={'Referer': REFERER}, timeout=30000)
-                    body = r.body()
-                    if r.status == 200 and body[:4] == b'%PDF':
-                        results[url] = body
-                        continue
-                    if _solve_cf(ctx, url):
-                        r = ctx.request.get(url, headers={'Referer': REFERER}, timeout=30000)
-                        body = r.body()
-                        if r.status == 200 and body[:4] == b'%PDF':
-                            results[url] = body
-                            continue
-                    app.logger.warning(f'Failed {url}: HTTP {r.status} magic={body[:8]!r}')
-                except Exception as e:
-                    app.logger.warning(f'Failed {url}: {e}')
+                body = _try_fetch(page, url)
+                if body is None:
+                    try:
+                        page.goto(url, wait_until='domcontentloaded', timeout=30000)
+                    except Exception:
+                        pass
+                    page.wait_for_timeout(4000)
+                    body = _try_fetch(page, url)
+                if body:
+                    results[url] = body
+                else:
+                    app.logger.warning(f'Failed {url}: CF challenge could not be cleared')
+            page.close()
         finally:
             browser.close()
     return results
@@ -98,7 +112,7 @@ def merge_pdf():
         except Exception as e:
             app.logger.error(f'CDP connect failed: {e}')
             return jsonify({
-                'error': '無法連到本機 Chrome (CDP)。請執行 scripts/launch-chrome-cdp.sh 後再試。'
+                'error': '無法連到本機 Chrome (CDP)。請執行 scripts/start.sh 後再試。'
             }), 503
 
     if not pdfs:
