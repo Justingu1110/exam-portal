@@ -30,6 +30,7 @@ async (url) => {
 
 @app.after_request
 def add_cors(response):
+    """Attach permissive CORS headers to every response for local dev use."""
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
@@ -39,12 +40,20 @@ def add_cors(response):
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_static(path):
+    """Serve static files from the repo root; fall back to index.html for /."""
     if path == '':
         path = 'index.html'
     return app.send_static_file(path)
 
 
 def _try_fetch(page, url):
+    """Fetch url via the CDP page's browser fetch(); return PDF bytes or None.
+
+    Runs _BROWSER_FETCH_JS inside the live page so the request carries the
+    page's cookies and origin, bypassing Cloudflare's bot checks.  Validates
+    the response body starts with the %PDF magic bytes before returning it;
+    returns None on any network error or if the body is not a valid PDF.
+    """
     try:
         res = page.evaluate(_BROWSER_FETCH_JS, url)
         if res.get('ok'):
@@ -93,6 +102,14 @@ def _fetch_pdfs(urls):
 
 @app.route('/api/merge-pdf', methods=['POST', 'OPTIONS'])
 def merge_pdf():
+    """POST /api/merge-pdf — download and merge a list of PDF URLs into one file.
+
+    Expects JSON body: {"urls": ["https://...", ...]}.
+    All URLs must be https://www.tcool.cc/...pdf (validated before fetching).
+    A threading lock serialises requests because CDP operates on a single page.
+    Returns the merged PDF as a downloadable attachment, or a JSON error on
+    failure (400 for bad input, 503 if the local Chrome CDP is unreachable).
+    """
     if request.method == 'OPTIONS':
         return '', 204
 
