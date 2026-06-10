@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1120">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>卡路里日記</title>
+<style>
+:root{
+  --bg:#0e1120; --card:#181d33; --card2:#212845; --line:#2c3354;
+  --text:#eef1fb; --muted:#8b93b8;
+  --green:#4ade80; --blue:#60a5fa; --amber:#fbbf24; --red:#f87171; --violet:#a78bfa;
+  --radius:18px;
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  background:linear-gradient(180deg,#0e1120 0%,#131831 60%,#0e1120 100%);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif;
+  max-width:520px; margin:0 auto;
+  padding-bottom:calc(78px + env(safe-area-inset-bottom));
+}
+header{
+  padding:calc(14px + env(safe-area-inset-top)) 20px 6px;
+  display:flex; justify-content:space-between; align-items:baseline;
+}
+header h1{font-size:20px; font-weight:800; letter-spacing:1px;}
+header .date{color:var(--muted); font-size:13px;}
+main{padding:8px 16px 16px;}
+section.tab{display:none;}
+section.tab.active{display:block; animation:fadein .25s ease;}
+@keyframes fadein{from{opacity:0; transform:translateY(6px);}to{opacity:1; transform:none;}}
+.card{
+  background:var(--card); border:1px solid var(--line);
+  border-radius:var(--radius); padding:16px; margin-bottom:14px;
+}
+.card h2{font-size:14px; color:var(--muted); font-weight:600; margin-bottom:10px; letter-spacing:.5px;}
+/* ring */
+.ring-wrap{display:flex; align-items:center; gap:14px;}
+.ring-box{position:relative; width:158px; height:158px; flex:none;}
+.ring-box svg{transform:rotate(-90deg);}
+.ring-center{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;}
+.ring-center .big{font-size:27px; font-weight:800; line-height:1.1;}
+.ring-center .small{font-size:11px; color:var(--muted); margin-top:3px;}
+.ring-bg{stroke:#262d4d;}
+.ring-fg{transition:stroke-dasharray .8s cubic-bezier(.22,1,.36,1), stroke .4s;}
+.stat-col{flex:1; display:flex; flex-direction:column; gap:10px;}
+.stat{display:flex; justify-content:space-between; align-items:baseline;}
+.stat .lab{font-size:13px; color:var(--muted); display:flex; align-items:center; gap:6px;}
+.dot{width:8px;height:8px;border-radius:4px;display:inline-block;}
+.stat .val{font-size:16px; font-weight:700; font-variant-numeric:tabular-nums;}
+.hint-line{margin-top:12px; font-size:13px; color:var(--muted); line-height:1.6;
+  background:var(--card2); border-radius:12px; padding:10px 12px;}
+.hint-line b{color:var(--text);}
+/* lists */
+.entry{display:flex; align-items:center; gap:10px; padding:10px 2px; border-bottom:1px solid var(--line);}
+.entry:last-child{border-bottom:none;}
+.entry .ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;}
+.entry .nm{flex:1; min-width:0;}
+.entry .nm .t{font-size:14px; font-weight:600;}
+.entry .nm .s{font-size:12px; color:var(--muted);}
+.entry .kc{font-weight:700; font-variant-numeric:tabular-nums; font-size:14px;}
+.entry .del{border:none; background:var(--card2); color:var(--muted); width:26px;height:26px;border-radius:8px; font-size:14px;}
+.empty{color:var(--muted); font-size:13px; text-align:center; padding:18px 0;}
+/* search & pick list */
+.search{width:100%; background:var(--card2); border:1px solid var(--line); color:var(--text);
+  border-radius:12px; padding:12px 14px; font-size:15px; outline:none; margin-bottom:12px;}
+.search::placeholder{color:#5e6790;}
+.pick{display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer;}
+.pick:last-child{border-bottom:none;}
+.pick:active{background:var(--card2);}
+.pick .nm{flex:1;}
+.pick .nm .t{font-size:15px; font-weight:600;}
+.pick .nm .s{font-size:12px; color:var(--muted);}
+.pick .kc{color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums;}
+.pick .plus{width:30px;height:30px;border-radius:10px;background:var(--card2);color:var(--green);
+  display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex:none;}
+.cat-chips{display:flex; gap:8px; overflow-x:auto; padding-bottom:10px; scrollbar-width:none;}
+.cat-chips::-webkit-scrollbar{display:none;}
+.chip{flex:none; background:var(--card2); border:1px solid var(--line); color:var(--muted);
+  border-radius:99px; padding:7px 14px; font-size:13px;}
+.chip.on{background:rgba(74,222,128,.15); border-color:var(--green); color:var(--green);}
+/* sheet */
+.sheet-mask{position:fixed; inset:0; background:rgba(5,7,18,.6); backdrop-filter:blur(3px);
+  display:none; z-index:50;}
+.sheet-mask.open{display:block;}
+.sheet{position:fixed; left:50%; transform:translateX(-50%) translateY(105%); bottom:0; width:100%; max-width:520px;
+  background:#1c2240; border-radius:24px 24px 0 0; padding:22px 20px calc(26px + env(safe-area-inset-bottom));
+  z-index:51; transition:transform .3s cubic-bezier(.22,1,.36,1); border:1px solid var(--line); border-bottom:none;}
+.sheet.open{transform:translateX(-50%) translateY(0);}
+.sheet h3{font-size:18px; margin-bottom:4px;}
+.sheet .sub{color:var(--muted); font-size:13px; margin-bottom:18px;}
+.stepper{display:flex; align-items:center; justify-content:center; gap:22px; margin:10px 0 16px;}
+.stepper button{width:46px;height:46px;border-radius:14px;border:1px solid var(--line);
+  background:var(--card2); color:var(--text); font-size:22px; font-weight:700;}
+.stepper .qv{font-size:26px; font-weight:800; min-width:90px; text-align:center; font-variant-numeric:tabular-nums;}
+.stepper .qv small{display:block; font-size:12px; color:var(--muted); font-weight:500;}
+.sheet .total{text-align:center; font-size:15px; color:var(--muted); margin-bottom:16px;}
+.sheet .total b{color:var(--green); font-size:22px;}
+.btn{width:100%; border:none; border-radius:14px; padding:15px; font-size:16px; font-weight:700;
+  background:linear-gradient(135deg,#34d399,#3b82f6); color:#08101f;}
+.btn.ghost{background:var(--card2); color:var(--muted); margin-top:8px;}
+input[type=range]{width:100%; accent-color:var(--green); height:32px;}
+.slider-row{margin-bottom:14px;}
+.slider-row .lab{display:flex; justify-content:space-between; font-size:13px; color:var(--muted); margin-bottom:2px;}
+.slider-row .lab b{color:var(--text); font-size:14px; font-variant-numeric:tabular-nums;}
+/* sim */
+.scen-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:4px;}
+.scen{background:var(--card2); border:1px solid var(--line); color:var(--text); border-radius:14px;
+  padding:10px 12px; font-size:13px; text-align:left; line-height:1.4;}
+.scen small{display:block; color:var(--muted); font-size:11px;}
+.scen.on{border-color:var(--violet); background:rgba(167,139,250,.14);}
+.scen.on small{color:var(--violet);}
+.seg{display:flex; background:var(--card2); border-radius:12px; padding:4px; gap:4px; margin-bottom:14px;}
+.seg button{flex:1; border:none; background:transparent; color:var(--muted); padding:8px 0;
+  border-radius:9px; font-size:13px; font-weight:600;}
+.seg button.on{background:#323b66; color:var(--text);}
+.sim-summary{font-size:14px; line-height:1.9;}
+.sim-summary b{font-size:17px;}
+.good{color:var(--green);} .bad{color:var(--red);} .warnc{color:var(--amber);} .bluec{color:var(--blue);}
+/* profile */
+.form-row{display:flex; gap:10px; margin-bottom:12px;}
+.field{flex:1;}
+.field label{display:block; font-size:12px; color:var(--muted); margin-bottom:5px;}
+.field input,.field select{width:100%; background:var(--card2); border:1px solid var(--line);
+  color:var(--text); border-radius:12px; padding:11px 12px; font-size:15px; outline:none;}
+/* tabbar */
+nav.tabbar{position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:520px;
+  background:rgba(17,21,40,.92); backdrop-filter:blur(14px); border-top:1px solid var(--line);
+  display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom)); z-index:40;}
+nav.tabbar button{flex:1; border:none; background:none; color:#646e99; font-size:10.5px;
+  display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 0;}
+nav.tabbar button .ic{font-size:21px; line-height:1;}
+nav.tabbar button.on{color:var(--green);}
+/* toast */
+#toast{position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-80px);
+  background:#22305c; color:var(--text); border:1px solid var(--line); padding:11px 20px;
+  border-radius:99px; font-size:14px; font-weight:600; z-index:99; transition:transform .35s cubic-bezier(.22,1,.36,1);
+  box-shadow:0 8px 30px rgba(0,0,0,.45); white-space:nowrap;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+svg text{font-family:inherit;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔥 卡路里日記</h1>
+  <div class="date" id="hdr-date"></div>
+</header>
+
+<main>
+
+<!-- ===== 今日 ===== -->
+<section class="tab active" id="tab-today">
+  <div class="card">
+    <div class="ring-wrap">
+      <div class="ring-box">
+        <svg width="158" height="158" viewBox="0 0 158 158">
+          <circle class="ring-bg" cx="79" cy="79" r="68" fill="none" stroke-width="14"/>
+          <circle class="ring-fg" id="ring" cx="79" cy="79" r="68" fill="none" stroke-width="14"
+            stroke-linecap="round" stroke="#4ade80" stroke-dasharray="0 999"/>
+        </svg>
+        <div class="ring-center">
+          <div class="big" id="ring-num">--</div>
+          <div class="small" id="ring-lab">還可以吃 (kcal)</div>
+        </div>
+      </div>
+      <div class="stat-col">
+        <div class="stat"><span class="lab"><span class="dot" style="background:var(--amber)"></span>每日目標</span><span class="val" id="st-goal">--</span></div>
+        <div class="stat"><span class="lab"><span class="dot" style="background:var(--green)"></span>飲食攝取</span><span class="val" id="st-in">0</span></div>
+        <div class="stat"><span class="lab"><span class="dot" style="background:var(--blue)"></span>運動消耗</span><span class="val" id="st-out">0</span></div>
+        <div class="stat"><span class="lab"><span class="dot" style="background:var(--violet)"></span>淨攝取</span><span class="val" id="st-net">0</span></div>
+      </div>
+    </div>
+    <div class="hint-line" id="today-hint"></div>
+  </div>
+
+  <div class="card">
+    <h2>近 7 天 — 攝取 vs 消耗</h2>
+    <div id="week-chart"></div>
+  </div>
+
+  <div class="card">
+    <h2>今日記錄</h2>
+    <div id="today-list"></div>
+  </div>
+</section>
+
+<!-- ===== 飲食 ===== -->
+<section class="tab" id="tab-food">
+  <div class="card">
+    <h2>記錄飲食 — 點選食物,熱量自動帶入</h2>
+    <input class="search" id="food-q" placeholder="🔍 搜尋食物,例如:滷肉飯、珍奶…" autocomplete="off">
+    <div class="cat-chips" id="food-cats"></div>
+    <div id="food-list"></div>
+  </div>
+  <div class="card">
+    <h2>找不到?自訂食物</h2>
+    <div class="form-row">
+      <div class="field"><label>名稱</label><input id="cf-name" placeholder="例:阿嬤的雞湯"></div>
+      <div class="field" style="max-width:110px"><label>熱量 (kcal)</label><input id="cf-kcal" type="number" inputmode="numeric" placeholder="350"></div>
+    </div>
+    <button class="btn" onclick="addCustomFood()">加入今日記錄</button>
+  </div>
+</section>
+
+<!-- ===== 運動 ===== -->
+<section class="tab" id="tab-ex">
+  <div class="card">
+    <h2>記錄運動 — 點選項目,依你的體重自動計算消耗</h2>
+    <input class="search" id="ex-q" placeholder="🔍 搜尋運動,例如:慢跑、重訓…" autocomplete="off">
+    <div id="ex-list"></div>
+  </div>
+</section>
+
+<!-- ===== 模擬 ===== -->
+<section class="tab" id="tab-sim">
+  <div class="card">
+    <h2>情境模擬 — 如果我這樣過日子,體重會怎麼變?</h2>
+    <div class="slider-row">
+      <div class="lab"><span>每日平均攝取</span><b id="sim-in-v">2000 kcal</b></div>
+      <input type="range" id="sim-in" min="1100" max="3600" step="50" value="2000">
+    </div>
+    <div class="slider-row">
+      <div class="lab"><span>每天運動 (快走) </span><b id="sim-ex-v">30 分鐘</b></div>
+      <input type="range" id="sim-ex" min="0" max="120" step="5" value="30">
+    </div>
+    <h2 style="margin-top:6px">疊加生活情境 (可複選)</h2>
+    <div class="scen-chips" id="scen-chips"></div>
+  </div>
+
+  <div class="card">
+    <h2>模擬期間</h2>
+    <div class="seg" id="sim-days">
+      <button data-d="30">30 天</button>
+      <button data-d="90" class="on">90 天</button>
+      <button data-d="180">180 天</button>
+      <button data-d="365">1 年</button>
+    </div>
+    <div id="sim-chart"></div>
+    <div class="sim-summary" id="sim-summary" style="margin-top:10px"></div>
+  </div>
+</section>
+
+<!-- ===== 我的 ===== -->
+<section class="tab" id="tab-me">
+  <div class="card">
+    <h2>個人資料 — 用來計算每日目標與運動消耗</h2>
+    <div class="form-row">
+      <div class="field"><label>性別</label>
+        <select id="p-sex"><option value="m">男</option><option value="f">女</option></select></div>
+      <div class="field"><label>年齡</label><input id="p-age" type="number" inputmode="numeric" value="30"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>身高 (cm)</label><input id="p-h" type="number" inputmode="decimal" value="170"></div>
+      <div class="field"><label>體重 (kg)</label><input id="p-w" type="number" inputmode="decimal" value="65"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>日常活動量 (不含記錄的運動)</label>
+        <select id="p-act">
+          <option value="1.2">久坐 — 幾乎整天坐著</option>
+          <option value="1.375" selected>輕度 — 偶爾走動、站立</option>
+          <option value="1.55">中度 — 工作常走動</option>
+          <option value="1.725">高度 — 體力勞動</option>
+        </select></div>
+    </div>
+    <button class="btn" onclick="saveProfile()">儲存</button>
+    <div class="hint-line" id="me-result" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <h2>資料</h2>
+    <button class="btn ghost" onclick="clearAll()" style="margin-top:0">清除所有記錄</button>
+    <div class="hint-line" style="margin-top:12px">所有資料只存在這支手機的瀏覽器裡 (localStorage),不會上傳到任何地方。</div>
+  </div>
+</section>
+
+</main>
+
+<nav class="tabbar">
+  <button data-tab="tab-today" class="on"><span class="ic">📊</span>今日</button>
+  <button data-tab="tab-food"><span class="ic">🍱</span>飲食</button>
+  <button data-tab="tab-ex"><span class="ic">🏃</span>運動</button>
+  <button data-tab="tab-sim"><span class="ic">🔮</span>模擬</button>
+  <button data-tab="tab-me"><span class="ic">👤</span>我的</button>
+</nav>
+
+<!-- bottom sheet -->
+<div class="sheet-mask" id="sheet-mask" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <h3 id="sh-title"></h3>
+  <div class="sub" id="sh-sub"></div>
+  <div id="sh-body"></div>
+  <button class="btn" id="sh-confirm">確認加入</button>
+  <button class="btn ghost" onclick="closeSheet()">取消</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ================= 資料庫 ================= */
+const FOODS=[
+// 主食/便當
+{n:"滷肉飯",k:500,u:"1碗",c:"主食"},{n:"雞肉飯",k:450,u:"1碗",c:"主食"},
+{n:"排骨便當",k:850,u:"1個",c:"主食"},{n:"雞腿便當",k:900,u:"1個",c:"主食"},
+{n:"牛肉麵",k:550,u:"1碗",c:"主食"},{n:"陽春麵",k:350,u:"1碗",c:"主食"},
+{n:"乾麵",k:480,u:"1碗",c:"主食"},{n:"炒飯",k:700,u:"1盤",c:"主食"},
+{n:"炒麵",k:600,u:"1盤",c:"主食"},{n:"水餃",k:450,u:"10顆",c:"主食"},
+{n:"鍋貼",k:600,u:"10顆",c:"主食"},{n:"小籠包",k:480,u:"8顆",c:"主食"},
+{n:"肉包",k:280,u:"1顆",c:"主食"},{n:"饅頭",k:230,u:"1顆",c:"主食"},
+{n:"白飯",k:280,u:"1碗",c:"主食"},{n:"糙米飯",k:270,u:"1碗",c:"主食"},
+{n:"義大利麵",k:650,u:"1份",c:"主食"},{n:"咖哩飯",k:700,u:"1份",c:"主食"},
+{n:"壽司",k:400,u:"8貫",c:"主食"},{n:"御飯糰",k:200,u:"1個",c:"主食"},
+{n:"傳統飯糰",k:550,u:"1個",c:"主食"},{n:"肉粽",k:500,u:"1顆",c:"主食"},
+{n:"炸醬麵",k:550,u:"1碗",c:"主食"},{n:"米粉湯",k:300,u:"1碗",c:"主食"},
+{n:"廣東粥",k:350,u:"1碗",c:"主食"},
+// 早餐
+{n:"蛋餅",k:280,u:"1份",c:"早餐"},{n:"三明治",k:300,u:"1個",c:"早餐"},
+{n:"蘿蔔糕",k:270,u:"2塊",c:"早餐"},{n:"吐司",k:140,u:"1片",c:"早餐"},
+{n:"燒餅油條",k:460,u:"1套",c:"早餐"},{n:"漢堡",k:500,u:"1個",c:"早餐"},
+{n:"鐵板麵",k:450,u:"1份",c:"早餐"},
+// 小吃/炸物
+{n:"雞排",k:600,u:"1片",c:"小吃"},{n:"鹹酥雞",k:585,u:"1份",c:"小吃"},
+{n:"薯條(中)",k:340,u:"1份",c:"小吃"},{n:"披薩",k:270,u:"1片",c:"小吃"},
+{n:"熱狗",k:280,u:"1根",c:"小吃"},{n:"鹽水雞",k:350,u:"1份",c:"小吃"},
+{n:"滷味",k:400,u:"1份",c:"小吃"},{n:"麻辣燙",k:600,u:"1份",c:"小吃"},
+{n:"火鍋",k:800,u:"1人份",c:"小吃"},{n:"臭豆腐",k:500,u:"1份",c:"小吃"},
+// 蛋白質
+{n:"茶葉蛋",k:75,u:"1顆",c:"蛋白質"},{n:"水煮蛋",k:70,u:"1顆",c:"蛋白質"},
+{n:"荷包蛋",k:90,u:"1顆",c:"蛋白質"},{n:"雞胸肉",k:165,u:"100g",c:"蛋白質"},
+{n:"鮭魚",k:200,u:"100g",c:"蛋白質"},{n:"豆腐",k:80,u:"1塊",c:"蛋白質"},
+{n:"無糖豆漿",k:140,u:"400ml",c:"蛋白質"},{n:"鮮奶",k:150,u:"240ml",c:"蛋白質"},
+{n:"優格",k:150,u:"1杯",c:"蛋白質"},{n:"起司",k:70,u:"1片",c:"蛋白質"},
+// 飲料
+{n:"珍珠奶茶",k:650,u:"700ml",c:"飲料"},{n:"奶茶",k:450,u:"700ml",c:"飲料"},
+{n:"無糖綠茶",k:0,u:"1杯",c:"飲料"},{n:"半糖綠茶",k:120,u:"700ml",c:"飲料"},
+{n:"拿鐵(中)",k:190,u:"1杯",c:"飲料"},{n:"美式咖啡",k:15,u:"1杯",c:"飲料"},
+{n:"可樂",k:140,u:"330ml",c:"飲料"},{n:"果汁",k:250,u:"500ml",c:"飲料"},
+{n:"啤酒",k:150,u:"330ml",c:"飲料"},{n:"養樂多",k:100,u:"1瓶",c:"飲料"},
+// 點心水果
+{n:"香蕉",k:105,u:"1根",c:"點心"},{n:"蘋果",k:95,u:"1顆",c:"點心"},
+{n:"芭樂",k:110,u:"1顆",c:"點心"},{n:"奇異果",k:50,u:"1顆",c:"點心"},
+{n:"葡萄",k:60,u:"10顆",c:"點心"},{n:"西瓜",k:50,u:"1片",c:"點心"},
+{n:"蛋糕",k:350,u:"1片",c:"點心"},{n:"餅乾",k:250,u:"1包",c:"點心"},
+{n:"洋芋片",k:280,u:"1包",c:"點心"},{n:"巧克力",k:250,u:"1條",c:"點心"},
+{n:"冰淇淋",k:200,u:"1球",c:"點心"},{n:"豆花",k:180,u:"1碗",c:"點心"},
+{n:"紅豆湯",k:250,u:"1碗",c:"點心"},{n:"雞蛋糕",k:300,u:"1份",c:"點心"},
+{n:"鳳梨酥",k:180,u:"1個",c:"點心"},{n:"堅果",k:180,u:"1把",c:"點心"},
+// 蔬菜
+{n:"燙青菜",k:60,u:"1份",c:"蔬菜"},{n:"炒青菜",k:130,u:"1份",c:"蔬菜"},
+{n:"生菜沙拉",k:120,u:"1份",c:"蔬菜"},{n:"番茄",k:30,u:"1顆",c:"蔬菜"},
+];
+const CATS=["全部","主食","早餐","小吃","蛋白質","飲料","點心","蔬菜"];
+const EXS=[
+{n:"散步",met:3.0,e:"🚶"},{n:"快走",met:4.3,e:"🚶"},{n:"慢跑",met:8.3,e:"🏃"},
+{n:"跑步(快)",met:9.8,e:"🏃"},{n:"騎腳踏車",met:5.5,e:"🚴"},{n:"飛輪",met:8.5,e:"🚴"},
+{n:"游泳",met:8.0,e:"🏊"},{n:"重量訓練",met:5.0,e:"🏋️"},{n:"高強度重訓",met:6.0,e:"🏋️"},
+{n:"HIIT 間歇",met:8.0,e:"⚡"},{n:"瑜珈",met:2.5,e:"🧘"},{n:"皮拉提斯",met:3.0,e:"🧘"},
+{n:"跳繩",met:11.0,e:"🪢"},{n:"爬樓梯",met:8.0,e:"🪜"},{n:"登山健行",met:6.5,e:"⛰️"},
+{n:"籃球",met:6.5,e:"🏀"},{n:"羽球",met:5.5,e:"🏸"},{n:"桌球",met:4.0,e:"🏓"},
+{n:"網球",met:7.3,e:"🎾"},{n:"足球",met:7.0,e:"⚽"},{n:"排球",met:4.0,e:"🏐"},
+{n:"棒壘球",met:5.0,e:"⚾"},{n:"舞蹈",met:5.0,e:"💃"},{n:"有氧操",met:6.5,e:"🤸"},
+{n:"攀岩",met:7.5,e:"🧗"},{n:"高爾夫",met:4.5,e:"⛳"},{n:"太極",met:3.0,e:"🥋"},
+{n:"家務打掃",met:3.3,e:"🧹"},{n:"遛狗",met:3.0,e:"🐕"},
+];
+const SCENARIOS=[
+{id:"boba", t:"☕ 每天少喝一杯珍奶", s:"攝取 −650 kcal/天", dIn:-650},
+{id:"night",t:"🌙 戒掉消夜",          s:"攝取 −300 kcal/天", dIn:-300},
+{id:"feast",t:"🍻 週末聚餐放縱",      s:"平均 +290 kcal/天", dIn:290},
+{id:"stair",t:"🪜 通勤改爬樓梯 15 分", s:"多消耗一點", dExMin:15, dExMet:8.0},
+{id:"gym",  t:"🏋️ 每週重訓 3 次 1 小時", s:"平均 +26 分/天", dExMin:26, dExMet:5.0},
+];
+
+/* ================= 狀態 ================= */
+const KEY="calorieDiary.v1";
+let db=load();
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.days) return d;}catch(e){}
+  return {profile:{sex:"m",age:30,h:170,w:65,act:1.375}, days:{}};
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(db));}
+function todayKey(d){const x=d||new Date();
+  return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");}
+function day(k){if(!db.days[k])db.days[k]={foods:[],exs:[]};return db.days[k];}
+function bmr(p){return Math.round(10*p.w+6.25*p.h-5*p.age+(p.sex==="m"?5:-161));}
+function tdee(p){return Math.round(bmr(p)*p.act);}
+function exKcal(met,min,w){return Math.round(met*(w||db.profile.w)*min/60);}
+function sumIn(k){return day(k).foods.reduce((s,f)=>s+f.k,0);}
+function sumOut(k){return day(k).exs.reduce((s,e)=>s+e.k,0);}
+function fmt(n){return Math.round(n).toLocaleString("zh-TW");}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+
+/* ================= 今日儀表板 ================= */
+function renderToday(){
+  const k=todayKey(), inn=sumIn(k), out=sumOut(k), goal=tdee(db.profile), net=inn-out, left=goal-net;
+  document.getElementById("st-goal").textContent=fmt(goal);
+  document.getElementById("st-in").textContent=fmt(inn);
+  document.getElementById("st-out").textContent=fmt(out);
+  document.getElementById("st-net").textContent=fmt(net);
+  // ring
+  const C=2*Math.PI*68, pct=Math.max(0,Math.min(net/goal,1));
+  const ring=document.getElementById("ring");
+  ring.setAttribute("stroke-dasharray",(pct*C)+" "+C);
+  const over=net>goal;
+  ring.setAttribute("stroke", over?"#f87171":(net>goal*0.85?"#fbbf24":"#4ade80"));
+  const num=document.getElementById("ring-num"), lab=document.getElementById("ring-lab");
+  num.textContent=fmt(Math.abs(left));
+  num.style.color=over?"#f87171":"";
+  lab.textContent=over?"已超過目標 (kcal)":"還可以吃 (kcal)";
+  // hint:把差距換成生活情境
+  const h=document.getElementById("today-hint"); const w=db.profile.w;
+  const walkMin=Math.round(Math.abs(left)/(4.3*w/60));
+  if(inn===0&&out===0){h.innerHTML="今天還沒有記錄。到 <b>🍱 飲食</b> 或 <b>🏃 運動</b> 點兩下就能記好,熱量自動算。";}
+  else if(over){h.innerHTML="超過目標 <b>"+fmt(net-goal)+" kcal</b> — 大約要 <b>快走 "+walkMin+" 分鐘</b> 才能打平,或明天少吃一份"+nearestFood(net-goal)+"。";}
+  else{h.innerHTML="目前低於目標 <b>"+fmt(left)+" kcal</b>,大約等於 "+nearestFood(left)+" 的熱量。照這個節奏,一週約 "+(left*7/7700).toFixed(1)+" kg 的減重幅度。";}
+  renderTodayList(); renderWeekChart();
+}
+function nearestFood(kcal){
+  let best=FOODS[0],bd=1e9;
+  for(const f of FOODS){if(f.k<30)continue;const d=Math.abs(f.k-kcal);if(d<bd){bd=d;best=f;}}
+  const ratio=kcal/best.k;
+  if(ratio>1.35)return "<b>"+(Math.round(ratio*10)/10)+" 份"+best.n+"</b> (每份 "+best.k+" kcal)";
+  return "<b>"+best.n+"</b> ("+best.k+" kcal)";
+}
+function renderTodayList(){
+  const k=todayKey(), d=day(k), el=document.getElementById("today-list");
+  if(!d.foods.length&&!d.exs.length){el.innerHTML='<div class="empty">尚無記錄</div>';return;}
+  let html="";
+  d.foods.forEach((f,i)=>{html+=
+    '<div class="entry"><div class="ico" style="background:rgba(74,222,128,.13)">🍱</div>'+
+    '<div class="nm"><div class="t">'+esc(f.n)+'</div><div class="s">'+esc(f.s||"")+'</div></div>'+
+    '<div class="kc" style="color:var(--green)">+'+fmt(f.k)+'</div>'+
+    '<button class="del" onclick="delEntry(\'foods\','+i+')">✕</button></div>';});
+  d.exs.forEach((e,i)=>{html+=
+    '<div class="entry"><div class="ico" style="background:rgba(96,165,250,.13)">'+(e.e||"🏃")+'</div>'+
+    '<div class="nm"><div class="t">'+esc(e.n)+'</div><div class="s">'+e.min+' 分鐘</div></div>'+
+    '<div class="kc" style="color:var(--blue)">−'+fmt(e.k)+'</div>'+
+    '<button class="del" onclick="delEntry(\'exs\','+i+')">✕</button></div>';});
+  el.innerHTML=html;
+}
+function delEntry(type,i){day(todayKey())[type].splice(i,1);save();renderToday();toast("已刪除");}
+
+function renderWeekChart(){
+  const W=460,H=190,pad={l:38,r:6,t:14,b:24}, goal=tdee(db.profile);
+  const days=[];const now=new Date();
+  for(let i=6;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);
+    const k=todayKey(d);days.push({k,lab:(d.getMonth()+1)+"/"+d.getDate(),inn:sumIn(k),out:sumOut(k)});}
+  const maxV=Math.max(goal*1.15,...days.map(d=>Math.max(d.inn,d.out)),100);
+  const x=i=>pad.l+i*(W-pad.l-pad.r)/7, bw=(W-pad.l-pad.r)/7;
+  const y=v=>pad.t+(H-pad.t-pad.b)*(1-v/maxV);
+  let s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%">';
+  for(const g of [0,0.5,1]){const v=Math.round(maxV*g),yy=y(v);
+    s+='<line x1="'+pad.l+'" y1="'+yy+'" x2="'+(W-pad.r)+'" y2="'+yy+'" stroke="#262d4d" stroke-width="1"/>'+
+       '<text x="'+(pad.l-6)+'" y="'+(yy+4)+'" fill="#6a7299" font-size="10" text-anchor="end">'+(v>=1000?(v/1000).toFixed(1)+"k":v)+'</text>';}
+  const gy=y(goal);
+  s+='<line x1="'+pad.l+'" y1="'+gy+'" x2="'+(W-pad.r)+'" y2="'+gy+'" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5 4" opacity=".8"/>'+
+     '<text x="'+(W-pad.r)+'" y="'+(gy-5)+'" fill="#fbbf24" font-size="10" text-anchor="end">目標 '+fmt(goal)+'</text>';
+  days.forEach((d,i)=>{
+    const cx=x(i)+bw/2;
+    const w1=bw*0.26;
+    if(d.inn>0)s+='<rect x="'+(cx-w1-2)+'" y="'+y(d.inn)+'" width="'+w1+'" height="'+(y(0)-y(d.inn))+'" rx="3" fill="#4ade80" opacity=".9"/>';
+    if(d.out>0)s+='<rect x="'+(cx+2)+'" y="'+y(d.out)+'" width="'+w1+'" height="'+(y(0)-y(d.out))+'" rx="3" fill="#60a5fa" opacity=".9"/>';
+    s+='<text x="'+cx+'" y="'+(H-7)+'" fill="'+(i===6?"#eef1fb":"#6a7299")+'" font-size="10" text-anchor="middle">'+d.lab+'</text>';});
+  s+='</svg>';
+  document.getElementById("week-chart").innerHTML=s;
+}
+
+/* ================= 飲食 ================= */
+let foodCat="全部";
+function renderFoodCats(){
+  document.getElementById("food-cats").innerHTML=CATS.map(c=>
+    '<button class="chip'+(c===foodCat?" on":"")+'" onclick="setCat(\''+c+'\')">'+c+'</button>').join("");
+}
+function setCat(c){foodCat=c;renderFoodCats();renderFoodList();}
+function renderFoodList(){
+  const q=document.getElementById("food-q").value.trim();
+  let list=FOODS.filter(f=>(foodCat==="全部"||f.c===foodCat)&&(!q||f.n.includes(q)));
+  document.getElementById("food-list").innerHTML=list.length?list.map(f=>{
+    const i=FOODS.indexOf(f);
+    return '<div class="pick" onclick="openFoodSheet('+i+')">'+
+      '<div class="nm"><div class="t">'+esc(f.n)+'</div><div class="s">'+f.u+' · '+f.c+'</div></div>'+
+      '<div class="kc">'+f.k+' kcal</div><div class="plus">＋</div></div>';
+  }).join(""):'<div class="empty">找不到「'+esc(q)+'」,可以在下方自訂食物</div>';
+}
+let sheetCtx=null;
+function openFoodSheet(i){
+  const f=FOODS[i]; sheetCtx={type:"food",f,qty:1};
+  document.getElementById("sh-title").textContent=f.n;
+  document.getElementById("sh-sub").textContent="每份 ("+f.u+") 約 "+f.k+" kcal — 熱量已自動帶入";
+  document.getElementById("sh-body").innerHTML=
+    '<div class="stepper"><button onclick="bumpQty(-0.5)">−</button>'+
+    '<div class="qv"><span id="sh-qty">1</span> 份<small id="sh-unit">'+f.u+'</small></div>'+
+    '<button onclick="bumpQty(0.5)">＋</button></div>'+
+    '<div class="total">共 <b id="sh-total">'+f.k+'</b> kcal</div>';
+  openSheet(addFoodFromSheet);
+}
+function bumpQty(d){
+  sheetCtx.qty=Math.max(0.5,Math.min(10,sheetCtx.qty+d));
+  document.getElementById("sh-qty").textContent=sheetCtx.qty;
+  document.getElementById("sh-total").textContent=fmt(sheetCtx.f.k*sheetCtx.qty);
+}
+function addFoodFromSheet(){
+  const {f,qty}=sheetCtx;
+  day(todayKey()).foods.push({n:f.n+(qty!==1?" ×"+qty:""),k:Math.round(f.k*qty),s:qty+" 份 ("+f.u+")"});
+  save();closeSheet();toast("🍱 已記錄 "+f.n+" +"+fmt(f.k*qty)+" kcal");renderToday();
+}
+function addCustomFood(){
+  const n=document.getElementById("cf-name").value.trim();
+  const k=parseInt(document.getElementById("cf-kcal").value,10);
+  if(!n||!(k>=0)){toast("請填名稱與熱量");return;}
+  day(todayKey()).foods.push({n,k,s:"自訂"});save();
+  document.getElementById("cf-name").value="";document.getElementById("cf-kcal").value="";
+  toast("🍱 已記錄 "+n+" +"+fmt(k)+" kcal");renderToday();
+}
+
+/* ================= 運動 ================= */
+function renderExList(){
+  const q=document.getElementById("ex-q").value.trim();
+  const w=db.profile.w;
+  let list=EXS.filter(e=>!q||e.n.includes(q));
+  document.getElementById("ex-list").innerHTML=list.length?list.map(e=>{
+    const i=EXS.indexOf(e);
+    return '<div class="pick" onclick="openExSheet('+i+')">'+
+      '<div class="ico" style="width:34px;height:34px;border-radius:10px;background:rgba(96,165,250,.13);display:flex;align-items:center;justify-content:center;flex:none">'+e.e+'</div>'+
+      '<div class="nm"><div class="t">'+esc(e.n)+'</div><div class="s">強度 '+e.met+' MET</div></div>'+
+      '<div class="kc">30分 ≈ '+exKcal(e.met,30,w)+' kcal</div><div class="plus" style="color:var(--blue)">＋</div></div>';
+  }).join(""):'<div class="empty">找不到這項運動</div>';
+}
+function openExSheet(i){
+  const e=EXS[i]; sheetCtx={type:"ex",e,min:30};
+  document.getElementById("sh-title").textContent=e.e+" "+e.n;
+  document.getElementById("sh-sub").textContent="依你的體重 "+db.profile.w+" kg 自動計算消耗";
+  document.getElementById("sh-body").innerHTML=
+    '<div class="slider-row"><div class="lab"><span>運動時間</span><b><span id="sh-min">30</span> 分鐘</b></div>'+
+    '<input type="range" id="sh-range" min="5" max="180" step="5" value="30"></div>'+
+    '<div class="total">消耗 <b id="sh-total" style="color:var(--blue)">'+exKcal(e.met,30)+'</b> kcal</div>';
+  document.getElementById("sh-range").addEventListener("input",ev=>{
+    sheetCtx.min=+ev.target.value;
+    document.getElementById("sh-min").textContent=sheetCtx.min;
+    document.getElementById("sh-total").textContent=fmt(exKcal(e.met,sheetCtx.min));
+  });
+  openSheet(addExFromSheet);
+}
+function addExFromSheet(){
+  const {e,min}=sheetCtx;
+  day(todayKey()).exs.push({n:e.n,e:e.e,min,k:exKcal(e.met,min)});
+  save();closeSheet();toast("🏃 已記錄 "+e.n+" −"+fmt(exKcal(e.met,min))+" kcal");renderToday();
+}
+
+/* ================= sheet 共用 ================= */
+function openSheet(onConfirm){
+  document.getElementById("sheet-mask").classList.add("open");
+  document.getElementById("sheet").classList.add("open");
+  document.getElementById("sh-confirm").onclick=onConfirm;
+}
+function closeSheet(){
+  document.getElementById("sheet-mask").classList.remove("open");
+  document.getElementById("sheet").classList.remove("open");
+}
+
+/* ================= 情境模擬 ================= */
+let simDays=90, activeScens=new Set();
+function renderScenChips(){
+  document.getElementById("scen-chips").innerHTML=SCENARIOS.map(s=>
+    '<button class="scen'+(activeScens.has(s.id)?" on":"")+'" onclick="toggleScen(\''+s.id+'\')">'+s.t+'<small>'+s.s+'</small></button>').join("");
+}
+function toggleScen(id){activeScens.has(id)?activeScens.delete(id):activeScens.add(id);renderScenChips();renderSim();}
+function renderSim(){
+  const p=db.profile;
+  const baseIn=+document.getElementById("sim-in").value;
+  const exMin=+document.getElementById("sim-ex").value;
+  document.getElementById("sim-in-v").textContent=fmt(baseIn)+" kcal";
+  document.getElementById("sim-ex-v").textContent=exMin+" 分鐘";
+  let dIn=0, extraEx=0;
+  for(const s of SCENARIOS){if(!activeScens.has(s.id))continue;
+    if(s.dIn)dIn+=s.dIn;
+    if(s.dExMin)extraEx+=s.dExMet*p.w*s.dExMin/60;}
+  const intake=Math.max(800,baseIn+dIn);
+  const exBurn=4.3*p.w*exMin/60+extraEx;
+  // 每天迭代:體重變 → TDEE 跟著變,曲線會自然趨緩
+  let w=p.w; const pts=[w];
+  for(let d=1;d<=simDays;d++){
+    const t=Math.round((10*w+6.25*p.h-5*p.age+(p.sex==="m"?5:-161))*p.act);
+    w+= (intake-exBurn-t)/7700;
+    w=Math.max(35,w); pts.push(w);
+  }
+  drawSimChart(pts);
+  const diff=w-p.w, daily=intake-exBurn-tdee(p);
+  const boba=Math.abs(daily)/650;
+  let cls=diff<-0.05?"good":(diff>0.05?"bad":"warnc");
+  let verdict=diff<-0.05?"📉 預計減少":(diff>0.05?"📈 預計增加":"➡️ 大致維持");
+  document.getElementById("sim-summary").innerHTML=
+    '每日淨差:<b class="'+(daily<=0?"good":"bad")+'">'+(daily>0?"+":"")+fmt(daily)+' kcal</b>'+
+    '(約 '+boba.toFixed(1)+' 杯珍珠奶茶)<br>'+
+    simDays+' 天後體重:<b class="'+cls+'">'+w.toFixed(1)+' kg</b> '+
+    '<span class="'+cls+'">'+verdict+' '+Math.abs(diff).toFixed(1)+' kg</span><br>'+
+    '<span style="color:var(--muted);font-size:12px">＊以你的資料 (TDEE '+fmt(tdee(p))+' kcal) 逐日推算,體重改變時消耗也會跟著變,僅供參考。</span>';
+}
+function drawSimChart(pts){
+  const W=460,H=200,pad={l:42,r:14,t:16,b:24};
+  let mn=Math.min(...pts),mx=Math.max(...pts);
+  if(mx-mn<1){const m=(mx+mn)/2;mn=m-0.5;mx=m+0.5;}
+  const xr=i=>pad.l+i*(W-pad.l-pad.r)/(pts.length-1);
+  const yr=v=>pad.t+(H-pad.t-pad.b)*(1-(v-mn)/(mx-mn));
+  let s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%">';
+  for(const g of [0,0.5,1]){const v=mn+(mx-mn)*g,yy=yr(v);
+    s+='<line x1="'+pad.l+'" y1="'+yy+'" x2="'+(W-pad.r)+'" y2="'+yy+'" stroke="#262d4d"/>'+
+       '<text x="'+(pad.l-6)+'" y="'+(yy+4)+'" fill="#6a7299" font-size="10" text-anchor="end">'+v.toFixed(1)+'</text>';}
+  let path="",area="M "+xr(0)+" "+yr(pts[0]);
+  pts.forEach((v,i)=>{const cmd=(i?" L ":"M ")+xr(i).toFixed(1)+" "+yr(v).toFixed(1);path+=cmd;if(i)area+=" L "+xr(i).toFixed(1)+" "+yr(v).toFixed(1);});
+  area+=" L "+xr(pts.length-1)+" "+(H-pad.b)+" L "+xr(0)+" "+(H-pad.b)+" Z";
+  const falling=pts[pts.length-1]<=pts[0], col=falling?"#4ade80":"#f87171";
+  s+='<path d="'+area+'" fill="'+col+'" opacity=".12"/>';
+  s+='<path d="'+path+'" fill="none" stroke="'+col+'" stroke-width="2.5" stroke-linejoin="round"/>';
+  s+='<circle cx="'+xr(0)+'" cy="'+yr(pts[0])+'" r="4" fill="#eef1fb"/>';
+  s+='<circle cx="'+xr(pts.length-1)+'" cy="'+yr(pts[pts.length-1])+'" r="5" fill="'+col+'"/>';
+  s+='<text x="'+(xr(pts.length-1)-8)+'" y="'+(yr(pts[pts.length-1])+(falling?-10:16))+'" fill="'+col+'" font-size="12" font-weight="700" text-anchor="end">'+pts[pts.length-1].toFixed(1)+' kg</text>';
+  s+='<text x="'+pad.l+'" y="'+(H-7)+'" fill="#6a7299" font-size="10">今天</text>';
+  s+='<text x="'+(W-pad.r)+'" y="'+(H-7)+'" fill="#6a7299" font-size="10" text-anchor="end">'+simDays+' 天後</text>';
+  s+='</svg>';
+  document.getElementById("sim-chart").innerHTML=s;
+}
+
+/* ================= 我的 ================= */
+function loadProfileForm(){
+  const p=db.profile;
+  document.getElementById("p-sex").value=p.sex;
+  document.getElementById("p-age").value=p.age;
+  document.getElementById("p-h").value=p.h;
+  document.getElementById("p-w").value=p.w;
+  document.getElementById("p-act").value=String(p.act);
+  showMeResult();
+}
+function saveProfile(){
+  const p=db.profile;
+  p.sex=document.getElementById("p-sex").value;
+  p.age=Math.max(10,Math.min(100,+document.getElementById("p-age").value||30));
+  p.h=Math.max(120,Math.min(220,+document.getElementById("p-h").value||170));
+  p.w=Math.max(30,Math.min(200,+document.getElementById("p-w").value||65));
+  p.act=+document.getElementById("p-act").value;
+  save();showMeResult();toast("✅ 已儲存,目標已更新");
+  document.getElementById("sim-in").value=tdee(p);
+  renderToday();renderSim();renderExList();
+}
+function showMeResult(){
+  const p=db.profile;
+  document.getElementById("me-result").innerHTML=
+    "基礎代謝 (BMR) 約 <b>"+fmt(bmr(p))+" kcal</b> — 就算整天躺著也會消耗的量。<br>"+
+    "每日消耗 (TDEE) 約 <b>"+fmt(tdee(p))+" kcal</b> — 這就是你的每日熱量目標。";
+}
+function clearAll(){
+  if(!confirm("確定要清除所有飲食與運動記錄嗎?(個人資料會保留)"))return;
+  db.days={};save();renderToday();toast("已清除記錄");
+}
+
+/* ================= 共用 ================= */
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.classList.add("show");
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2200);
+}
+document.querySelectorAll("nav.tabbar button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll("nav.tabbar button").forEach(x=>x.classList.remove("on"));
+    document.querySelectorAll("section.tab").forEach(x=>x.classList.remove("active"));
+    b.classList.add("on");
+    document.getElementById(b.dataset.tab).classList.add("active");
+    if(b.dataset.tab==="tab-sim")renderSim();
+    if(b.dataset.tab==="tab-today")renderToday();
+  });
+});
+document.getElementById("food-q").addEventListener("input",renderFoodList);
+document.getElementById("ex-q").addEventListener("input",renderExList);
+document.getElementById("sim-in").addEventListener("input",renderSim);
+document.getElementById("sim-ex").addEventListener("input",renderSim);
+document.querySelectorAll("#sim-days button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll("#sim-days button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");simDays=+b.dataset.d;renderSim();
+  });
+});
+
+/* ================= 啟動 ================= */
+const now=new Date();
+document.getElementById("hdr-date").textContent=
+  now.getFullYear()+"/"+(now.getMonth()+1)+"/"+now.getDate()+" 週"+"日一二三四五六"[now.getDay()];
+document.getElementById("sim-in").value=tdee(db.profile);
+renderFoodCats();renderFoodList();renderExList();renderScenChips();
+loadProfileForm();renderToday();renderSim();
+</script>
+</body>
+</html>
